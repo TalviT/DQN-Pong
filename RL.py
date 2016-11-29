@@ -88,9 +88,10 @@ def TrainGraph(inp, out, sess):
 
     if os.path.isfile("./python_vars.pickle"):
         saver.restore(sess, "./pong_game-dqn.chk")
+        print("Session loaded.")
         with open("./python_vars.pickle", "rb") as f:
             t, epsilon, D = pickle.load(f)
-        print("Session loaded.")
+        print("Memory loaded.")
     else:
         sess.run(tf.initialize_all_variables())
         t = 0
@@ -156,14 +157,17 @@ def TrainGraph(inp, out, sess):
         inp_t = inp_t1
         t += 1
 
-        # print out where we are after saving where we are
+        # print out where we are
+        print("TIMESTEMP {} / EPSILON {} / ACTION {} / REWARD {} / Q_MAX {:e}".format(t, epsilon, maxIndex, reward_t, np.max(out_t)))
+
+        # save our session every 10000 steps
         if t % 10000 == 0:
             saver.save(sess, "./pong_game-dqn.chk")
+            print("Session saved.")
             with open("./python_vars.pickle", "wb") as f:
                 pickle.dump([t, epsilon, D], f)
-            print("Session saved.")
-
-        print("TIMESTEMP {} / EPSILON {} / ACTION {} / REWARD {} / Q_MAX {:e}".format(t, epsilon, maxIndex, reward_t, np.max(out_t)))
+            print("Memory saved.")
+            return
 
 def Main():
     #create session
