@@ -16,7 +16,7 @@ INITIAL_EPSILON = 1.0
 FINAL_EPSILON = 0.05
 # how many frames to anneal epsilon
 EXPLORE = 500000
-OBSERVE = 5000
+OBSERVE = 50000
 # store our experiences, the size of it
 REPLAY_MEMORY = 500000
 # batch size to train on
