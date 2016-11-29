@@ -16,7 +16,7 @@ INITIAL_EPSILON = 1.0
 FINAL_EPSILON = 0.05
 # how many frames to anneal epsilon
 EXPLORE = 500000
-OBSERVE = 50000
+OBSERVE = 5000
 # store our experiences, the size of it
 REPLAY_MEMORY = 500000
 # batch size to train on
@@ -89,7 +89,7 @@ def TrainGraph(inp, out, sess):
     if os.path.isfile("./python_vars.pickle"):
         saver.restore(sess, "./pong_game-dqn.chk")
         with open("./python_vars.pickle", "rb") as f:
-            t, epsilon = pickle.load(f)
+            t, epsilon, D = pickle.load(f)
         print("Session loaded.")
     else:
         sess.run(tf.initialize_all_variables())
@@ -160,7 +160,7 @@ def TrainGraph(inp, out, sess):
         if t % 10000 == 0:
             saver.save(sess, "./pong_game-dqn.chk")
             with open("./python_vars.pickle", "wb") as f:
-                pickle.dump([t, epsilon], f)
+                pickle.dump([t, epsilon, D], f)
             print("Session saved.")
 
         print("TIMESTEMP {} / EPSILON {} / ACTION {} / REWARD {} / Q_MAX {:e}".format(t, epsilon, maxIndex, reward_t, np.max(out_t)))
