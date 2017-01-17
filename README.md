@@ -21,11 +21,11 @@ use [pip](https://pypi.python.org/pypi/pip) to install the dependencies. Tensorf
 
 make sure to have the following file structure:
 
-folder
-|-logs
-|-saved_networks
-|-pong.py
-|-RL.py
+folder  
+|--logs  
+|--saved_networks  
+|--pong.py  
+|--RL.py
 
 if the logs folder or the saved_networks folder are missing, create them by yourself.
 
