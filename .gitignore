@@ -1,5 +1,4 @@
-checkpoint
-*.chk
-*.meta
-*.pickle
+/saved_networks
+/logs
 /__pycache__
+*.pyc
