@@ -4,8 +4,6 @@ import pong # our class
 import numpy as np # math
 import random # random
 from collections import deque # queue data structure. fast appends. and pops. replay memory
-#import pickle # save variables
-import os.path
 
 # definine hyperparameters
 ACTIONS = 3 # up, down, stay
