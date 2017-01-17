@@ -88,7 +88,7 @@ def UpdateBall(paddle1Ypos, paddle2Ypos, ballXpos, ballYpos, ballXdirection, bal
         ballXdirection = -1
     elif ballXpos >= WINDOW_WIDTH - BALL_WIDTH:
         ballXpos = WINDOW_WIDTH - BALL_WIDTH
-        ballXdirection -1
+        ballXdirection = -1
 
     # if it hits the top move down
     if ballYpos <= 0:
@@ -128,13 +128,15 @@ def UpdatePaddle1(action, paddle1Ypos):
 
     return paddle1Ypos
 
-def UpdatePaddle2(paddle2Ypos, ballYpos):
-    # move down if ball is in upper half
-    if paddle2Ypos + PADDLE_HEIGHT / 2 < ballYpos + BALL_HEIGHT / 2:
-        paddle2Ypos += PADDLE_SPEED
-    # move up if ball is in lower half
-    elif paddle2Ypos + PADDLE_HEIGHT / 2 > ballYpos + BALL_HEIGHT / 2:
-        paddle2Ypos -= PADDLE_SPEED
+def UpdatePaddle2(paddle2Ypos, ballXpos, ballYpos):
+    # move if the ball is on the right side
+    if random.random() > 0.075:
+        # move down ig ball is in upper half
+        if paddle2Ypos + PADDLE_HEIGHT / 2 < ballYpos + BALL_HEIGHT / 2:
+            paddle2Ypos += PADDLE_SPEED
+        # move up if ball is in lower half
+        elif paddle2Ypos + PADDLE_HEIGHT / 2 > ballYpos + BALL_HEIGHT / 2:
+            paddle2Ypos -= PADDLE_SPEED
 
     # don't let it move off the screen!
     if paddle2Ypos < 0:
@@ -148,7 +150,6 @@ def UpdatePaddle2(paddle2Ypos, ballYpos):
 class PongGame:
     def __init__(self):
         # keep score
-        self.tally = 0
         self.ticker = 0
         # initialize position of our paddle
         self.paddle1Ypos = WINDOW_HEIGHT / 2 - PADDLE_HEIGHT / 2
@@ -188,7 +189,7 @@ class PongGame:
         self.paddle1Ypos = UpdatePaddle1(action, self.paddle1Ypos)
         DrawPaddle1(self.paddle1Ypos)
         # update evil AI paddle
-        self.paddle2Ypos = UpdatePaddle2(self.paddle2Ypos, self.ballYpos)
+        self.paddle2Ypos = UpdatePaddle2(self.paddle2Ypos, self.ballXpos, self.ballYpos)
         DrawPaddle2(self.paddle2Ypos)
         # update our vars by updatung ball position
         [score, self.paddle1Ypos, self.paddle2Ypos, self.ballXpos, self.ballYpos, self.ballXdirection, self.ballYdirection, self.ticker] = UpdateBall(self.paddle1Ypos, self.paddle2Ypos, self.ballXpos, self.ballYpos, self.ballXdirection, self.ballYdirection, self.ticker)
@@ -198,8 +199,5 @@ class PongGame:
         image_data = pygame.surfarray.array3d(pygame.display.get_surface())
         # update the window
         pygame.display.flip()
-        # record the total score
-        self.tally += score
-        print("Tally is " + str(self.tally))
         # return the score and the surface data
         return score, image_data

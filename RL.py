@@ -21,6 +21,7 @@ REPLAY_MEMORY = 250000 # test, how much your ram can fit!
 BATCH = 32
 # number of training iterations
 T_MAX = 1000000
+#S_MAX # the score our agent shall reach
 
 # create tensorflow graph
 def CreateGraph():
@@ -95,6 +96,8 @@ def TrainGraph(inp, out, sess):
         print("Could not find saved networks")
 
     stats_log = open("logs/stats.log", "w")
+    # total game score
+    score = 0
 
     t = 0
     epsilon = INITIAL_EPSILON
@@ -170,7 +173,10 @@ def TrainGraph(inp, out, sess):
             state = "explore"
         else:
             state = "train"
-        stats = "TIMESTEP {:7} | STATE {:7} | EPSILON {:6.4f} | ACTION {} | R_DEC {:5} | REWARD {:2d} | Q_MAX {: e}".format(t, state, epsilon, maxIndex, r_dec, reward_t, np.max(out_t))
+
+        score += reward_t
+
+        stats = "TIMESTEP {:7} | SCORE: {: 5} | STATE {:7} | EPSILON {:6.4f} | ACTION {} | R_DEC {:5} | REWARD {:2d} | Q_MAX {: e}".format(t, score, state, epsilon, maxIndex, r_dec, reward_t, np.max(out_t))
         print(stats)
         # write into file
         stats_log.write(stats + "\n")
@@ -185,6 +191,11 @@ def TrainGraph(inp, out, sess):
             saver.save(sess, "saved_networks/pong_game-dqn.chk", global_step=t)
             print("Session saved.")
 
+        if t == T_MAX:
+            return
+        #if score == S_MAX:
+            return
+
 
 def Main():
     try:
@@ -195,7 +206,8 @@ def Main():
         #train our graph on input and output with session variables
         TrainGraph(inp, out, sess)
     except KeyboardInterrupt:
-        sess.close()
+        print("Closing Session...")
+    sess.close()
     exit()
 
 if __name__ == "__main__":
