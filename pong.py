@@ -1,7 +1,10 @@
-import pygame #helps us make GUI games in python
-import random #help us define which direction the ball will start moving in
+import pygame # helps us make GUI games in python
+import random # help us define which direction the ball will start moving in
+import os # for positioning of our window
 
-#DQN. CNN reads in pixel data. 
+#os.environ["SDL_VIDEODRIVER"] = "dummy"
+
+#DQN. CNN reads in pixel data.
 #reinforcement learning. trial and error.
 #maximize action based on reward
 #agent envrioment loop
@@ -9,12 +12,13 @@ import random #help us define which direction the ball will start moving in
 #based on just game state. mapping of state to action is policy
 #experience replay. learns from past policies
 
-# frame rate per second (not used?)
-FPS = 60
-
 # size of our window
 WINDOW_WIDTH = 400
 WINDOW_HEIGHT = 400
+
+#position of our window
+WINDOW_X_POS = 300
+WINDOW_Y_POS = 100
 
 # size of our paddle
 PADDLE_WIDTH = 10
@@ -27,16 +31,19 @@ BALL_WIDTH = 10
 BALL_HEIGHT = 10
 
 # speed of our paddle and ball
-PADDLE_SPEED = 2
-BALL_X_SPEED = 3
-BALL_Y_SPEED = 2
+PADDLE_SPEED = 4
+BALL_X_SPEED = 6
+BALL_Y_SPEED = 4
 
 # RGB colors for our paddle and ball
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 
+os.environ['SDL_VIDEO_WINDOW_POS'] = "{},{}".format(WINDOW_X_POS, WINDOW_Y_POS)
 # initialize our screen using width and height vars
+pygame.init()
 screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+#screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.NOFRAME)
 
 # Paddle1 is our learning agent/us
 # Paddle2 is the evil AI
@@ -60,7 +67,7 @@ def DrawPaddle2(paddle2Ypos):
     pygame.draw.rect(screen, WHITE, paddle2)
 
 # update the ball, using the paddle posistions the balls positions and the balls directions
-def UpdateBall(paddle1Ypos, paddle2Ypos, ballXpos, ballYpos, ballXdirection, ballYdirection):
+def UpdateBall(paddle1Ypos, paddle2Ypos, ballXpos, ballYpos, ballXdirection, ballYdirection, ticker):
     # update the x and y position
     ballXpos += ballXdirection * BALL_X_SPEED
     ballYpos += ballYdirection * BALL_Y_SPEED
@@ -72,6 +79,7 @@ def UpdateBall(paddle1Ypos, paddle2Ypos, ballXpos, ballYpos, ballXdirection, bal
         score = 1 # our agent will be "rewarded"
     # if it hits the left wall
     elif ballXpos <= 0:
+        ballXpos = 0
         ballXdirection = 1 # the ball switches direction
         score = -1 # our agent will be "punished"
 
@@ -79,6 +87,7 @@ def UpdateBall(paddle1Ypos, paddle2Ypos, ballXpos, ballYpos, ballXdirection, bal
     elif (ballXpos + BALL_WIDTH >= WINDOW_WIDTH - PADDLE_WIDTH - PADDLE_BUFFER) and (ballYpos + BALL_HEIGHT >= paddle2Ypos) and (ballYpos <= paddle2Ypos + PADDLE_HEIGHT):
         ballXdirection = -1
     elif ballXpos >= WINDOW_WIDTH - BALL_WIDTH:
+        ballXpos = WINDOW_WIDTH - BALL_WIDTH
         ballXdirection -1
 
     # if it hits the top move down
@@ -90,7 +99,17 @@ def UpdateBall(paddle1Ypos, paddle2Ypos, ballXpos, ballYpos, ballXdirection, bal
         ballYpos = WINDOW_HEIGHT - BALL_HEIGHT
         ballYdirection = -1
 
-    return [ score, paddle1Ypos, paddle2Ypos, ballXpos, ballYpos, ballXdirection, ballYdirection ]
+    # the players get multiple rewards if the ball hits the paddle from behind.
+    # this is a workaround to make sure that the agent gets just one reward and not more
+    # maybe not the best solution, but it works...
+    if ticker > 0:
+        score = 0
+        ticker -= 1
+
+    if score != 0 and ticker == 0:
+        ticker = 10
+
+    return [ score, paddle1Ypos, paddle2Ypos, ballXpos, ballYpos, ballXdirection, ballYdirection, ticker ]
 
 # update the paddle position
 def UpdatePaddle1(action, paddle1Ypos):
@@ -130,6 +149,7 @@ class PongGame:
     def __init__(self):
         # keep score
         self.tally = 0
+        self.ticker = 0
         # initialize position of our paddle
         self.paddle1Ypos = WINDOW_HEIGHT / 2 - PADDLE_HEIGHT / 2
         self.paddle2Ypos = WINDOW_HEIGHT / 2 - PADDLE_HEIGHT / 2
@@ -171,7 +191,7 @@ class PongGame:
         self.paddle2Ypos = UpdatePaddle2(self.paddle2Ypos, self.ballYpos)
         DrawPaddle2(self.paddle2Ypos)
         # update our vars by updatung ball position
-        [score, self.paddle1Ypos, self.paddle2Ypos, self.ballXpos, self.ballYpos, self.ballXdirection, self.ballYdirection] = UpdateBall(self.paddle1Ypos, self.paddle2Ypos, self.ballXpos, self.ballYpos, self.ballXdirection, self.ballYdirection)
+        [score, self.paddle1Ypos, self.paddle2Ypos, self.ballXpos, self.ballYpos, self.ballXdirection, self.ballYdirection, self.ticker] = UpdateBall(self.paddle1Ypos, self.paddle2Ypos, self.ballXpos, self.ballYpos, self.ballXdirection, self.ballYdirection, self.ticker)
         # draw the ball
         DrawBall(self.ballXpos, self.ballYpos)
         # get the surface data
@@ -182,4 +202,4 @@ class PongGame:
         self.tally += score
         print("Tally is " + str(self.tally))
         # return the score and the surface data
-        return [score, image_data]
+        return score, image_data

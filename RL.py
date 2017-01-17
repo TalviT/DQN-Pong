@@ -4,7 +4,7 @@ import pong # our class
 import numpy as np # math
 import random # random
 from collections import deque # queue data structure. fast appends. and pops. replay memory
-import pickle # save variables
+#import pickle # save variables
 import os.path
 
 # definine hyperparameters
@@ -15,43 +15,46 @@ GAMMA = 0.99
 INITIAL_EPSILON = 1.0
 FINAL_EPSILON = 0.05
 # how many frames to anneal epsilon
-EXPLORE = 500000
-OBSERVE = 50000
+EXPLORE = 500
+OBSERVE = 500
 # store our experiences, the size of it
-REPLAY_MEMORY = 500000
+REPLAY_MEMORY = 250000 # test, how much your ram can fit!
 # batch size to train on
-BATCH = 100
+BATCH = 32
+# number of training iterations
+T_MAX = 1000000
 
 # create tensorflow graph
 def CreateGraph():
-    # first convolutional layer. bias vector
-    # creates an empty tensor with all elements set to zero with a shape
-    W_conv1 = tf.Variable(tf.zeros([8, 8, 4, 32]))
-    B_conv1 = tf.Variable(tf.zeros([32]))
-    # second layer
-    W_conv2 = tf.Variable(tf.zeros([4, 4, 32, 64]))
-    B_conv2 = tf.Variable(tf.zeros([64]))
-    # third layer
-    W_conv3 = tf.Variable(tf.zeros([3, 3, 64, 64]))
-    B_conv3 = tf.Variable(tf.zeros([64]))
-    # fouth layer
-    W_fc4 = tf.Variable(tf.zeros([3136, 784]))
-    B_fc4 = tf.Variable(tf.zeros([784]))
-    # last layer
-    W_fc5 = tf.Variable(tf.zeros([784, ACTIONS]))
-    B_fc5 = tf.Variable(tf.zeros([ACTIONS]))
+    # network weights
+    W_conv1 = tf.Variable(tf.truncated_normal([8, 8, 4, 32], stddev=0.01))
+    b_conv1 = tf.Variable(tf.constant(0.01, shape=[32]))
+
+    W_conv2 = tf.Variable(tf.truncated_normal([4, 4, 32, 64], stddev=0.01))
+    b_conv2 = tf.Variable(tf.constant(0.01, shape=[64]))
+
+    W_conv3 = tf.Variable(tf.truncated_normal([3, 3, 64, 64], stddev=0.01))
+    b_conv3 = tf.Variable(tf.constant(0.01, shape=[64]))
+
+    W_fc4 = tf.Variable(tf.truncated_normal([1600, 512], stddev=0.01))
+    b_fc4 = tf.Variable(tf.constant(0.01, shape=[512]))
+
+    W_fc5 = tf.Variable(tf.truncated_normal([512, ACTIONS], stddev=0.01))
+    b_fc5 = tf.Variable(tf.constant(0.01, shape=[ACTIONS]))
 
     # input for pixel data
-    s = tf.placeholder("float", [None, 84, 84, 4])
+    s = tf.placeholder("float", [None, 80, 80, 4])
 
-    # Computes rectified linear unit activation fucntion on a 2-D convolution given 4-D input and filter tensors
-    conv1 = tf.nn.relu(tf.nn.conv2d(s, W_conv1, strides=[1, 4, 4, 1], padding="VALID") + B_conv1)
-    conv2 = tf.nn.relu(tf.nn.conv2d(conv1, W_conv2, strides=[1, 2, 2, 1], padding="VALID") + B_conv2)
-    conv3 = tf.nn.relu(tf.nn.conv2d(conv2, W_conv3, strides=[1, 1, 1, 1], padding="VALID") + B_conv3)
+    # Computes rectified linear unit activation fucntion (relu) on a 2-D convolution given 4-D input and filter tensors
+    conv1 = tf.nn.relu(tf.nn.conv2d(s, W_conv1, strides=[1, 4, 4, 1], padding="SAME") + b_conv1)
+    pool1 = tf.nn.max_pool(conv1, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
 
-    conv3_flat = tf.reshape(conv3, [-1, 3136])
-    fc4 = tf.nn.relu(tf.matmul(conv3_flat, W_fc4 + B_fc4))
-    fc5 = tf.matmul(fc4, W_fc5) + B_fc5
+    conv2 = tf.nn.relu(tf.nn.conv2d(pool1, W_conv2, strides=[1, 2, 2, 1], padding="SAME") + b_conv2)
+    conv3 = tf.nn.relu(tf.nn.conv2d(conv2, W_conv3, strides=[1, 1, 1, 1], padding="SAME") + b_conv3)
+
+    conv3_flat = tf.reshape(conv3, [-1, 1600])
+    fc4 = tf.nn.relu(tf.matmul(conv3_flat, W_fc4 + b_fc4))
+    fc5 = tf.matmul(fc4, W_fc5) + b_fc5
 
     return s, fc5
 
@@ -64,7 +67,7 @@ def TrainGraph(inp, out, sess):
     # action
     action = tf.reduce_sum(tf.mul(out, argmax), reduction_indices=1)
     # cost function we will reduce through backpropagation
-    cost = tf.reduce_mean(tf.square(action - gt))
+    cost = tf.reduce_mean(tf.square(gt - action))
     # optimization function to reduce our minimize our cost function
     train_step = tf.train.AdamOptimizer(1e-6).minimize(cost)
 
@@ -77,7 +80,7 @@ def TrainGraph(inp, out, sess):
     # initial frame
     frame = game.GetPresentFrame()
     # convert rgb to gray scale for processing
-    frame = cv2.cvtColor(cv2.resize(frame, (84, 84)), cv2.COLOR_BGR2GRAY)
+    frame = cv2.cvtColor(cv2.resize(frame, (80, 80)), cv2.COLOR_BGR2GRAY)
     # binary colors, black or white
     ret, frame = cv2.threshold(frame, 1, 255, cv2.THRESH_BINARY)
     # stack frames, that is our input tensor
@@ -85,17 +88,18 @@ def TrainGraph(inp, out, sess):
 
     # saver
     saver = tf.train.Saver()
-
-    if os.path.isfile("./python_vars.pickle"):
-        saver.restore(sess, "./pong_game-dqn.chk")
-        print("Session loaded.")
-        with open("./python_vars.pickle", "rb") as f:
-            t, epsilon, D = pickle.load(f)
-        print("Memory loaded.")
+    sess.run(tf.initialize_all_variables())
+    checkpoint = tf.train.get_checkpoint_state("saved_networks")
+    if checkpoint and checkpoint.model_checkpoint_path:
+        saver.restore(sess, checkpoint.model_checkpoint_path)
+        print("Successfully loaded:", checkpoint.model_checkpoint_path)
     else:
-        sess.run(tf.initialize_all_variables())
-        t = 0
-        epsilon = INITIAL_EPSILON
+        print("Could not find saved networks")
+
+    stats_log = open("logs/stats.log", "w")
+
+    t = 0
+    epsilon = INITIAL_EPSILON
 
     # training time
     while True:
@@ -104,21 +108,25 @@ def TrainGraph(inp, out, sess):
         # argmax function
         argmax_t = np.zeros([ACTIONS])
 
-        if random.random() <= epsilon:
+        if random.random() <= epsilon or t <= OBSERVE:
             maxIndex = random.randrange(ACTIONS)
+            r_dec = "True" # optional for logging, True if randomly decided
         else:
             maxIndex = np.argmax(out_t)
+            r_dec = "False"
         argmax_t[maxIndex] = 1
 
-        if epsilon > FINAL_EPSILON:
+        # scale down epsilon
+        if epsilon > FINAL_EPSILON and t > OBSERVE:
             epsilon -= (INITIAL_EPSILON - FINAL_EPSILON) / EXPLORE
 
         # reward tensor if score is positive
         reward_t, frame = game.GetNextFrame(argmax_t)
         # get frame pixel data
-        frame = cv2.cvtColor(cv2.resize(frame, (84, 84)), cv2.COLOR_BGR2GRAY)
+        frame = cv2.cvtColor(cv2.resize(frame, (80, 80)), cv2.COLOR_BGR2GRAY)
         ret, frame = cv2.threshold(frame, 1, 255, cv2.THRESH_BINARY)
-        frame = np.reshape(frame, (84, 84, 1))
+        frame = np.reshape(frame, (80, 80, 1))
+
         # new input tensor
         inp_t1 = np.append(frame, inp_t[:, :, 0:3], axis=2)
 
@@ -158,24 +166,39 @@ def TrainGraph(inp, out, sess):
         t += 1
 
         # print out where we are
-        print("TIMESTEMP {} / EPSILON {} / ACTION {} / REWARD {} / Q_MAX {:e}".format(t, epsilon, maxIndex, reward_t, np.max(out_t)))
+        if t <= OBSERVE:
+            state = "observe"
+        elif OBSERVE < t < OBSERVE + EXPLORE:
+            state = "explore"
+        else:
+            state = "train"
+        stats = "TIMESTEP {:7} | STATE {:7} | EPSILON {:6.4f} | ACTION {} | R_DEC {:5} | REWARD {:2d} | Q_MAX {: e}".format(t, state, epsilon, maxIndex, r_dec, reward_t, np.max(out_t))
+        print(stats)
+        # write into file
+        stats_log.write(stats + "\n")
+
+        #save images
+        #if t % 10000 <= 100:
+        #    cv2.imwrite("logs/images/frame" + str(t) + ".png", frame)
+
 
         # save our session every 10000 steps
         if t % 10000 == 0:
-            saver.save(sess, "./pong_game-dqn.chk")
+            saver.save(sess, "saved_networks/pong_game-dqn.chk", global_step=t)
             print("Session saved.")
-            with open("./python_vars.pickle", "wb") as f:
-                pickle.dump([t, epsilon, D], f)
-            print("Memory saved.")
-            return
+
 
 def Main():
-    #create session
-    sess = tf.InteractiveSession()
-    #input layer and output layer by creating graph
-    inp, out = CreateGraph()
-    #train our graph on input and output with session variables
-    TrainGraph(inp, out, sess)
+    try:
+        #create session
+        sess = tf.InteractiveSession()
+        #input layer and output layer by creating graph
+        inp, out = CreateGraph()
+        #train our graph on input and output with session variables
+        TrainGraph(inp, out, sess)
+    except KeyboardInterrupt:
+        sess.close()
+    exit()
 
 if __name__ == "__main__":
     Main()
