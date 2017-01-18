@@ -67,7 +67,7 @@ def DrawPaddle2(paddle2Ypos):
     pygame.draw.rect(screen, WHITE, paddle2)
 
 # update the ball, using the paddle posistions the balls positions and the balls directions
-def UpdateBall(paddle1Ypos, paddle2Ypos, ballXpos, ballYpos, ballXdirection, ballYdirection, ticker):
+def UpdateBall(paddle1Ypos, paddle2Ypos, ballXpos, ballYpos, ballXdirection, ballYdirection, ticker, evil_moves):
     # update the x and y position
     ballXpos += ballXdirection * BALL_X_SPEED
     ballYpos += ballYdirection * BALL_Y_SPEED
@@ -86,6 +86,7 @@ def UpdateBall(paddle1Ypos, paddle2Ypos, ballXpos, ballYpos, ballXdirection, bal
     # check if it hits the other side
     elif (ballXpos + BALL_WIDTH >= WINDOW_WIDTH - PADDLE_WIDTH - PADDLE_BUFFER) and (ballYpos + BALL_HEIGHT >= paddle2Ypos) and (ballYpos <= paddle2Ypos + PADDLE_HEIGHT):
         ballXdirection = -1
+        evil_moves = 30
     elif ballXpos >= WINDOW_WIDTH - BALL_WIDTH:
         ballXpos = WINDOW_WIDTH - BALL_WIDTH
         ballXdirection = -1
@@ -109,7 +110,7 @@ def UpdateBall(paddle1Ypos, paddle2Ypos, ballXpos, ballYpos, ballXdirection, bal
     if score != 0 and ticker == 0:
         ticker = 10
 
-    return [ score, paddle1Ypos, paddle2Ypos, ballXpos, ballYpos, ballXdirection, ballYdirection, ticker ]
+    return [ score, paddle1Ypos, paddle2Ypos, ballXpos, ballYpos, ballXdirection, ballYdirection, ticker, evil_moves ]
 
 # update the paddle position
 def UpdatePaddle1(action, paddle1Ypos):
@@ -128,15 +129,25 @@ def UpdatePaddle1(action, paddle1Ypos):
 
     return paddle1Ypos
 
-def UpdatePaddle2(paddle2Ypos, ballXpos, ballYpos):
+def UpdatePaddle2(paddle2Ypos, ballYpos, evil_moves, evil_dir):
     # move if the ball is on the right side
-    if random.random() > 0.075:
+    if evil_moves == 0:
         # move down ig ball is in upper half
         if paddle2Ypos + PADDLE_HEIGHT / 2 < ballYpos + BALL_HEIGHT / 2:
             paddle2Ypos += PADDLE_SPEED
         # move up if ball is in lower half
         elif paddle2Ypos + PADDLE_HEIGHT / 2 > ballYpos + BALL_HEIGHT / 2:
             paddle2Ypos -= PADDLE_SPEED
+    # add some randomness to enemies movement
+    # to prevent our agent from copying his moves
+    else:
+        if evil_dir != 0:
+            paddle2Ypos += evil_dir * PADDLE_SPEED
+        else:
+            evil_dir = random.choice([-1, 1])
+    
+    if evil_moves > 0:
+        evil_moves -= 1
 
     # don't let it move off the screen!
     if paddle2Ypos < 0:
@@ -144,13 +155,14 @@ def UpdatePaddle2(paddle2Ypos, ballXpos, ballYpos):
     elif paddle2Ypos > WINDOW_HEIGHT - PADDLE_HEIGHT:
         paddle2Ypos = WINDOW_HEIGHT - PADDLE_HEIGHT
 
-    return paddle2Ypos
+    return paddle2Ypos, evil_moves, evil_dir
 
 # game class
 class PongGame:
     def __init__(self):
-        # keep score
-        self.ticker = 0
+        self.ticker = 0 # bug workaround
+        self.evil_moves = 0 # random moves for evilAI
+        self.evil_dir = 0 # direction of evil's moves
         # initialize position of our paddle
         self.paddle1Ypos = WINDOW_HEIGHT / 2 - PADDLE_HEIGHT / 2
         self.paddle2Ypos = WINDOW_HEIGHT / 2 - PADDLE_HEIGHT / 2
@@ -189,10 +201,10 @@ class PongGame:
         self.paddle1Ypos = UpdatePaddle1(action, self.paddle1Ypos)
         DrawPaddle1(self.paddle1Ypos)
         # update evil AI paddle
-        self.paddle2Ypos = UpdatePaddle2(self.paddle2Ypos, self.ballXpos, self.ballYpos)
+        self.paddle2Ypos, self.evil_moves, self.evil_dir = UpdatePaddle2(self.paddle2Ypos, self.ballYpos, self.evil_moves, self.evil_dir)
         DrawPaddle2(self.paddle2Ypos)
         # update our vars by updatung ball position
-        [score, self.paddle1Ypos, self.paddle2Ypos, self.ballXpos, self.ballYpos, self.ballXdirection, self.ballYdirection, self.ticker] = UpdateBall(self.paddle1Ypos, self.paddle2Ypos, self.ballXpos, self.ballYpos, self.ballXdirection, self.ballYdirection, self.ticker)
+        [score, self.paddle1Ypos, self.paddle2Ypos, self.ballXpos, self.ballYpos, self.ballXdirection, self.ballYdirection, self.ticker, self.evil_moves] = UpdateBall(self.paddle1Ypos, self.paddle2Ypos, self.ballXpos, self.ballYpos, self.ballXdirection, self.ballYdirection, self.ticker, self.evil_moves)
         # draw the ball
         DrawBall(self.ballXpos, self.ballYpos)
         # get the surface data
