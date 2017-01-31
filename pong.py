@@ -44,6 +44,7 @@ os.environ['SDL_VIDEO_WINDOW_POS'] = "{},{}".format(WINDOW_X_POS, WINDOW_Y_POS)
 pygame.init()
 screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
 #screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.NOFRAME)
+pygame.display.set_caption("Pong Deep Q-Learning")
 
 # Paddle1 is our learning agent/us
 # Paddle2 is the evil AI
@@ -176,24 +177,7 @@ class PongGame:
         # where it will start, y part
         self.ballYpos = num * (WINDOW_HEIGHT - BALL_HEIGHT) / 9
 
-    def GetPresentFrame(self):
-        # for each frame, calls the event queue, like if the main window needs to be repainted
-        pygame.event.pump()
-        # make backgound black
-        screen.fill(BLACK)
-        # draw our paddles
-        DrawPaddle1(self.paddle1Ypos)
-        DrawPaddle2(self.paddle2Ypos)
-        # draw our ball
-        DrawBall(self.ballXpos, self.ballYpos)
-        # copies the pixels from our surface to a 3D array. we'll use this for RL
-        image_data = pygame.surfarray.array3d(pygame.display.get_surface())
-        # update the window
-        pygame.display.flip()
-        # return our surface data
-        return image_data
-
-    def GetNextFrame(self, action):
+    def GetFrame(self, action):
         pygame.event.pump()
         score = 0
         screen.fill(BLACK)

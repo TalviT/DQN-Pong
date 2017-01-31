@@ -7,21 +7,15 @@ from collections import deque # queue data structure. fast appends. and pops. re
 
 # definine hyperparameters
 ACTIONS = 3 # up, down, stay
-# define our learning rate
-GAMMA = 0.99
-# for updating our gradient or training over time
-INITIAL_EPSILON = 1.0
-FINAL_EPSILON = 0.05
-# how many frames to anneal epsilon
-EXPLORE = 500
-OBSERVE = 500
-# store our experiences, the size of it
-REPLAY_MEMORY = 250000 # test, how much your ram can fit!
-# batch size to train on
-BATCH = 32
-# number of training iterations
-T_MAX = 1000000
-#S_MAX # the score our agent shall reach
+GAMMA = 0.99 # define our learning rate
+INITIAL_EPSILON = 1.0 # for updating our gradient or training over time
+FINAL_EPSILON = 0.05 # final value of epsilon
+OBSERVE = 1000 # timesteps to observe before training
+EXPLORE = 1000 # frames over which to anneal epsilon
+REPLAY_MEMORY = 250000 # store our experiences, the size of it (test, how much your ram can fit!)
+BATCH = 32 # batch size to train on
+T_MAX = 1000000 # number of training iterations
+S_MAX = 100 # the score our agent shall reach
 
 # create tensorflow graph
 def CreateGraph():
@@ -41,7 +35,7 @@ def CreateGraph():
     W_fc5 = tf.Variable(tf.truncated_normal([512, ACTIONS], stddev=0.01))
     b_fc5 = tf.Variable(tf.constant(0.01, shape=[ACTIONS]))
 
-    # input for pixel data
+    # input layer for pixel data
     s = tf.placeholder("float", [None, 80, 80, 4])
 
     # Computes rectified linear unit activation fucntion (relu) on a 2-D convolution given 4-D input and filter tensors
@@ -52,7 +46,7 @@ def CreateGraph():
     conv3 = tf.nn.relu(tf.nn.conv2d(conv2, W_conv3, strides=[1, 1, 1, 1], padding="SAME") + b_conv3)
 
     conv3_flat = tf.reshape(conv3, [-1, 1600])
-    fc4 = tf.nn.relu(tf.matmul(conv3_flat, W_fc4 + b_fc4))
+    fc4 = tf.nn.relu(tf.matmul(conv3_flat, W_fc4) + b_fc4)
     fc5 = tf.matmul(fc4, W_fc5) + b_fc5
 
     return s, fc5
@@ -75,9 +69,12 @@ def TrainGraph(inp, out, sess):
 
     # create a queue for experience replay to store policies
     D = deque()
-
+    
+    # action do nothing
+    argmax_t = np.zeros([ACTIONS])
+    argmax_t[0] = 1
     # initial frame
-    frame = game.GetPresentFrame()
+    frame = game.GetFrame(argmax_t)[1]
     # convert rgb to gray scale for processing
     frame = cv2.cvtColor(cv2.resize(frame, (80, 80)), cv2.COLOR_BGR2GRAY)
     # binary colors, black or white
@@ -122,7 +119,7 @@ def TrainGraph(inp, out, sess):
             epsilon -= (INITIAL_EPSILON - FINAL_EPSILON) / EXPLORE
 
         # reward tensor if score is positive
-        reward_t, frame = game.GetNextFrame(argmax_t)
+        reward_t, frame = game.GetFrame(argmax_t)
         # get frame pixel data
         frame = cv2.cvtColor(cv2.resize(frame, (80, 80)), cv2.COLOR_BGR2GRAY)
         ret, frame = cv2.threshold(frame, 1, 255, cv2.THRESH_BINARY)
@@ -194,7 +191,7 @@ def TrainGraph(inp, out, sess):
         if t == T_MAX:
             return
         #if score == S_MAX:
-            return
+        #    return
 
 
 def Main():
