@@ -58,7 +58,7 @@ def TrainGraph(inp, out, sess):
     gt = tf.placeholder("float", [None]) #ground truth
 
     # action
-    action = tf.reduce_sum(tf.mul(out, argmax), reduction_indices=1)
+    action = tf.reduce_sum(tf.multiply(out, argmax), axis=1)
     # cost function we will reduce through backpropagation
     cost = tf.reduce_mean(tf.square(gt - action))
     # optimization function to reduce our minimize our cost function
@@ -84,7 +84,7 @@ def TrainGraph(inp, out, sess):
 
     # saver
     saver = tf.train.Saver()
-    sess.run(tf.initialize_all_variables())
+    sess.run(tf.global_variables_initializer())
     checkpoint = tf.train.get_checkpoint_state("saved_networks")
     if checkpoint and checkpoint.model_checkpoint_path:
         saver.restore(sess, checkpoint.model_checkpoint_path)
